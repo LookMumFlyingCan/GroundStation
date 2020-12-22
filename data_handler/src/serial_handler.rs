@@ -34,7 +34,6 @@ impl SerialHandler{
 
     let tcclone = self.news.clone();
 
-
     thread::spawn(move || {
       let mut buffer: Vec<u8> = Vec::new();
 
@@ -75,6 +74,8 @@ impl SerialHandler{
   }
   
   pub fn send_message(&mut self, buffer: &[u8]) -> bool{
+    info!("sending {:?}", buffer);
+
     for (_i, byte) in buffer.iter().enumerate() {
       match &self.comm {
         Some(tx) => tx.send(*byte).unwrap(),

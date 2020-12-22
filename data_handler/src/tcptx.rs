@@ -19,8 +19,9 @@ impl Newsletter{
     for (_i, sub) in self.subscribers.iter().enumerate() {
       let mut stream = TcpStream::connect(format!("{}:{}", sub, self.port))?;
 
+      info!("sending {:?} via tcp", buffer);
+
       stream.write(buffer)?;
-      //return std::result::Result::Ok(());
     }
     Ok(())
   }

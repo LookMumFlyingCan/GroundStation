@@ -6,6 +6,8 @@ use serial_handler::SerialHandler;
 use config::Config;
 use tcptx::Newsletter;
 use std::io::{self, BufRead};
+use std::io::prelude::*;
+use std::net::{TcpListener, TcpStream};
 
 extern crate pretty_env_logger;
 #[macro_use] extern crate log;
@@ -24,8 +26,23 @@ fn main() {
   info!("send {}", port.send_message(&[65,66,67,10,13]));
   
   loop{
-    let stdin = io::stdin();
-    for _line in stdin.lock().lines() {
+    let lis = TcpListener::bind(format!("127.0.0.1:{}", c.rxport));
+
+    for conn in lis.unwrap().incoming() {
+      rest(&mut port, &mut conn.unwrap());
     }
   }
+}
+
+fn rest(port: &mut SerialHandler, conn: &mut TcpStream){
+  let mut buffer = [0; 128];
+
+  let len = conn.read(&mut buffer).unwrap();
+  buffer[len] = 10;
+  buffer[len+1] = 13;
+
+  let dbuff = &buffer[..len+2];
+
+  info!("recieved {:?} via tcp", dbuff);
+  port.send_message(dbuff);
 }
