@@ -5,9 +5,9 @@ mod tcptx;
 use serial_handler::SerialHandler;
 use config::Config;
 use tcptx::Newsletter;
-use std::io::{self, BufRead};
 use std::io::prelude::*;
 use std::net::{TcpListener, TcpStream};
+use std::net::IpAddr;
 
 extern crate pretty_env_logger;
 #[macro_use] extern crate log;
@@ -23,26 +23,49 @@ fn main() {
   let mut port = SerialHandler::connect(&c.terminal[0..], c.baudrate, news).unwrap();
   port.init();
 
-  info!("send {}", port.send_message(&[65,66,67,10,13]));
-  
   loop{
     let lis = TcpListener::bind(format!("127.0.0.1:{}", c.rxport));
 
     for conn in lis.unwrap().incoming() {
-      rest(&mut port, &mut conn.unwrap());
+      match rest(&mut port, &mut conn.unwrap()) {
+        Err(_) => error!("message too long to recive"),
+        _ => {}
+      };
     }
   }
 }
 
-fn rest(port: &mut SerialHandler, conn: &mut TcpStream){
+fn rest(port: &mut SerialHandler, conn: &mut TcpStream) -> Result<(), ()>{
   let mut buffer = [0; 128];
 
-  let len = conn.read(&mut buffer).unwrap();
-  buffer[len] = 10;
-  buffer[len+1] = 13;
+  let len = match conn.read(&mut buffer) {
+    Ok(x) => x,
+    _ => return Err(())
+  };
+  
+  if len > 127 {
+    error!("message too long to recieve");
+    Err(()) 
+  } else {
 
-  let dbuff = &buffer[..len+2];
+    if buffer[0] == 7u8 && buffer[1] == 7u8 {
+      info!("subsciption request recivied for {}", conn.peer_addr().unwrap().ip());
+      match conn.peer_addr().unwrap().ip() {
+        IpAddr::V4(ip) => port.addsub(ip),
+        IpAddr::V6(_ip) => error!("this server does not support ipv6 connections")
+      };
 
-  info!("recieved {:?} via tcp", dbuff);
-  port.send_message(dbuff);
+      Ok(())
+    } else {
+      buffer[len] = 10;
+      buffer[len+1] = 13;
+
+      let dbuff = &buffer[..len+2];
+
+      info!("recieved {:?} via tcp", dbuff);
+      port.send_message(dbuff);
+
+      Ok(()) 
+    }
+  }
 }
