@@ -26,9 +26,18 @@ fn main() -> std::io::Result<()> {
       let mut st = TcpStream::connect("127.0.0.1:2137")?;
 
       let mut buf: Vec<u8> = Vec::new();
+      
+      let cline = line.unwrap().clone();
+      let bline = cline.clone();
+      if cline == "bell".to_string() {
+        buf.push(7);
+        buf.push(7);
+      } else {
 
-      for cha in line.unwrap().chars() {
-        buf.push(cha as u8);
+        for cha in bline.chars() {
+          buf.push(cha as u8);
+        }
+        
       }
 
       st.write(&buf)?;
