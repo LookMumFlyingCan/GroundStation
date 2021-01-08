@@ -1,49 +1,85 @@
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
-use std::{io, thread};
 use std::io::Read;
+use std::result::Result;
 use std::process::Child;
 use stoppable_thread;
+use spmc;
+
+const BUFFER_SIZE: usize = 128;
 
 pub struct Adsb {
-  pub child: mpsc::Receiver<String>,
-  pub handle: Option<stoppable_thread::StoppableHandle<()>>,
-  pub killer: Child
+  pub child: spmc::Receiver<[u8; BUFFER_SIZE]>,
+  handle: Option<stoppable_thread::StoppableHandle<()>>,
+  killer: Child
 }
 
 impl Adsb{
-  pub fn new(gain: u32) -> Adsb{
-    let dump = Adsb::get_thread(gain);
+  pub fn new(path: String, gain: u32, freq: u32) -> Result<Adsb, &'static str> {
+    let dump = Adsb::get_thread(path, gain, freq)?;
 
-    Adsb { child: dump.2, handle: Some(dump.1), killer: dump.0 }
+    Ok(Adsb { child: dump.2, handle: Some(dump.1), killer: dump.0 })
   }
 
-  pub fn reset(&mut self, gain: u32){
+  pub fn reset(&mut self, path: String, gain: u32, freq: u32) -> Result<(), &'static str> {
     match self.handle.take() {
-      Some(t) => {t.stop(); self.killer.kill().unwrap();},
-      None => {return;}
-    };
+      Some(t) => {t.stop(); 
+        match self.killer.kill() {
+          Ok(x) => Ok(x),
+          Err(_x) => Err("Failed to kill the old worker thread :(")
+        }
+      },
+      None => { Ok(()) }
+    }?;
     
-    let dump = Adsb::get_thread(gain);
+    let dump = Adsb::get_thread(path, gain, freq)?;
     self.child = dump.2;
     self.handle = Some(dump.1);
-    self.killer = dump.0
+    self.killer = dump.0;
+
+    Ok(())
   }
 
-  fn get_thread(gain: u32) -> (Child, stoppable_thread::StoppableHandle<()>, mpsc::Receiver<String>){
-    let (tx, rx): (mpsc::Sender<String>, mpsc::Receiver<String>) = mpsc::channel();
+  fn get_thread(path: String, gain: u32, freq: u32) -> Result<(Child, stoppable_thread::StoppableHandle<()>, spmc::Receiver<[u8; BUFFER_SIZE]>), &'static str> {
+    let (mut tx, mut rx): (spmc::Sender<[u8; BUFFER_SIZE]>, spmc::Receiver<[u8; BUFFER_SIZE]>) = spmc::channel();
     let (ctx, crx): (mpsc::Sender<Child>, mpsc::Receiver<Child>) = mpsc::channel();
 
     let child_handle = stoppable_thread::spawn(move |stop| {
-      let mut child = Command::new("/home/h39/Documents/Projects/cansat/a.out").arg(format!("dup {}", gain)).stdout(Stdio::piped()).spawn().expect("naw man");
-      let mut childout = child.stdout.take().unwrap();
-      ctx.send(child);
+      let mut child = match Command::new(path)
+        .arg(format!("-g {}", gain))
+        .arg(format!("-f {}", freq))
+        .stdout(Stdio::piped()).spawn() {
+        Ok(x) => x,
+        Err(x) => {error!("Could not start dump1090: {}", x); return; }
+      };
+
+      let mut childout = match child.stdout.take() {
+        Some(x) => x,
+        None => {error!("Was not able to capture the output of dump1090"); return; }
+      };
+
+      match ctx.send(child) {
+        Ok(x) => x,
+        Err(x) => {error!("Failed to pass thread handle over mpsc: {}", x); return; }
+      };
+
       while !stop.get() {
-        let mut buffer = [0; 128];
-        childout.read(&mut buffer).unwrap();
-        info!("read: {}", String::from_utf8_lossy(&buffer));
+        let mut buffer = [0; BUFFER_SIZE];
+        match childout.read(&mut buffer) {
+          Ok(x) => x,
+          Err(x) => {error!("Cannot read from dump1090: {}", x); return;}
+        };
+        match tx.send(buffer) {
+          Ok(x) => x,
+          Err(x) => {error!("Failed to pass dump1090 data over mpsc: {}", x); return; }
+        };
     }});
 
-    (crx.recv().unwrap(), child_handle, rx)
+    match crx.recv() {
+      Ok(x) => Ok((x, child_handle, rx)),
+      Err(x) => { 
+        Err(Box::leak(x.to_string().into_boxed_str()))
+      }
+    }
   }
 }
