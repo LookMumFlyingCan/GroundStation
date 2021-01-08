@@ -1,0 +1,5 @@
+{
+  "terminal": "/dev/pts/7",
+  "baudrate": 9600,
+  "gain": 40
+}
