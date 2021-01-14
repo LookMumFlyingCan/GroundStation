@@ -70,19 +70,14 @@ impl Adsb{
       while !stop.get() {
         let mut buffer = [0; BUFFER_SIZE];
         match childout.read(&mut buffer) {
-          Ok(x) => {
-            if(buffer[0] == b'*') {
-              if(buffer[30] == b';') {
-                tx.send(String::from_utf8_lossy(&buffer[1..29]).to_string());
-              } else {
-                tx.send(String::from_utf8_lossy(&buffer[1..15]).to_string());
-              }
-            } else if(buffer[0] != 0) {
-              info!("unknown message recieved: {}", String::from_utf8_lossy(&buffer));
-            }
-          },
+          Ok(x) => x,
           Err(x) => {error!("Cannot read from dump1090: {}", x); return;}
         };
+
+        if buffer[0] == 0 {
+          continue;
+        }
+
         match tx.send(buffer) {
           Ok(x) => x,
           Err(x) => {error!("Failed to pass dump1090 data over mpsc: {}", x); return; }
