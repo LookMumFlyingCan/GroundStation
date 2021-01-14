@@ -1,8 +1,10 @@
 mod adsb;
 mod config;
+mod uart;
 
 use crate::config::Config;
 use crate::adsb::Adsb;
+use crate::uart::Uart;
 use std::io::{self, BufRead};
 
 extern crate pretty_env_logger;
@@ -14,10 +16,14 @@ fn main() {
   pretty_env_logger::env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
   let config = Config::load("config.json");
-  let mut adsb = Adsb::new(config.gain);
+  let mut adsb = match Adsb::new("/home/lubuntu/GroundStation/a.out".to_string(), config.gain, 1090) {
+    Ok(x) => x,
+    Err(x) => {error!("Adsb decoder start failed: {}", x); return;}
+  };
+  let mut had = Uart::new(adsb);
 
   let stdin = io::stdin();
   for line in stdin.lock().lines() {
-      adsb.reset(line.unwrap().to_string().parse::<u32>().unwrap());
+    had.reset("/home/lubuntu/GroundStation/a.out".to_string(), line.unwrap().to_string().parse::<u32>().unwrap(), 1090);
   }
 }
