@@ -5,7 +5,9 @@ use std::io::prelude::*;
 pub struct Config {
     pub terminal: String,
     pub baudrate: u32,
-    pub gain: u32
+    pub gain: f32,
+    pub freq: u32,
+    pub path: String
 }
 
 impl Config {

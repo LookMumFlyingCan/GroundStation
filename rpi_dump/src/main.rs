@@ -16,14 +16,15 @@ fn main() {
   pretty_env_logger::env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
   let config = Config::load("config.json");
-  let mut adsb = match Adsb::new("/home/h39/Downloads/dump1090/dump1090".to_string(), config.gain, 1090) {
+  let mut adsb = match Adsb::new("/home/h39/Downloads/dump1090/dump1090".to_string(), config.gain, config.freq) {
     Ok(x) => x,
     Err(x) => {error!("Adsb decoder start failed: {}", x); return;}
   };
-  let mut had = Uart::new(adsb);
+  let mut had = Uart::new(adsb, &config.terminal[..], config.baudrate).unwrap();
 
-  let stdin = io::stdin();
+  /*let stdin = io::stdin();
   for line in stdin.lock().lines() {
-    had.reset("/home/lubuntu/GroundStation/a.out".to_string(), line.unwrap().to_string().parse::<u32>().unwrap(), 1090);
-  }
+    had.reset("/home/h39/Downloads/dump1090/dump1090".to_string(), line.unwrap().to_string().parse::<f32>().unwrap(), config.freq);
+  }*/
+  had.reciever(config.path, config.gain, config.freq);
 }
