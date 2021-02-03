@@ -113,6 +113,7 @@ impl Uart {
                   for line in String::from_utf8_lossy(&x[..]).split('\n') {
                     if(match line.chars().nth(0usize) { Some(x) => x, None => continue } == '*') {
                       rclone.write(line[1..line.len()-1].as_bytes());
+                      rclone.write( &['\n' as u8] );
                       info!("read: {}", String::from_utf8_lossy(line[1..line.len()-1].as_bytes()));  
                     }
                   }

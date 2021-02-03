@@ -75,7 +75,17 @@ impl Adsb{
           Ok(())
         } else {
           error!("dump1090 did not find the device, {}", errbuf[0]);
-          std::process::exit(1);
+
+          let mut buffer = [0; BUFFER_SIZE];
+          buffer[0] = ('*' as u8);
+          buffer[1] = ('D' as u8);
+          buffer[2] = ('E' as u8);
+          
+          match tx.send(buffer) {
+            Ok(x) => x,
+            Err(x) => {error!("failed to pass dump1090 data over mpsc: {}", x); return; }
+          };
+          //std::process::exit(1);
           Err("device unavailable")
         },
         Err(x) => {error!("cannot read from dump1090: {}", x); Err("dump not responding")}
@@ -90,7 +100,6 @@ impl Adsb{
         let mut buffer = [0; BUFFER_SIZE];
 
         if stop.get() { 
-          info!("sraka");
           buffer[0] = ('*' as u8);
           buffer[1] = ('D' as u8);
           buffer[2] = ('R' as u8);
