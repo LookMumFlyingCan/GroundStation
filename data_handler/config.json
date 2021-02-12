@@ -2,6 +2,6 @@
   "baudrate": 9600,
   "txport": 2138,
   "rxport": 2137,
-  "terminal": "/dev/pts/4",
-  "subscribers": []
+  "terminal": "/dev/pts/5",
+  "subscribers": ["127.0.0.1"]
 }

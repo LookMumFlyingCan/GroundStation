@@ -1,3 +1,0 @@
-[submodule "rpi_setup/usbboot"]
-	path = rpi_setup/usbboot
-	url = https://github.com/raspberrypi/usbboot

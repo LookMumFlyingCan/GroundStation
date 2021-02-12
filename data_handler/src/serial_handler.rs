@@ -6,6 +6,7 @@ use std::{io, thread};
 use std::boxed;
 
 static mut BUFLEN: u32 = 0u32;
+const BUFFER_SIZE: usize = 128usize;
 
 pub struct SerialHandler{
   port: boxed::Box<dyn serialport::SerialPort>,
@@ -40,24 +41,19 @@ impl SerialHandler{
       let (txip, rxip): (mpsc::Sender<std::net::Ipv4Addr>, mpsc::Receiver<std::net::Ipv4Addr>) = mpsc::channel();
       
       thread::spawn(move || {
-        let mut buffer: Vec<u8> = Vec::new();
-
         loop {
-          let mut pbuff: [u8; 1] = [0; 1];
+          let mut pbuff: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE];
           match rclone.read(&mut pbuff) {
-            Ok(_b) => {
+            Ok(b) => {
               while BUFLEN > 0 {
                 let sub = rxip.recv().unwrap();
                 tcclone.addsub(format!("{}.{}.{}.{}", sub.octets()[0], sub.octets()[1], sub.octets()[2], sub.octets()[3]).to_string());
                 BUFLEN -= 1;
               }
 
-              if pbuff[0] == 13 {
-                SerialHandler::handle_message(&buffer, &tcclone);
-                buffer.clear();
-              } else {
-                buffer.push(pbuff[0]);
-              }
+
+              info!("pbuffer {:?}", pbuff);
+              SerialHandler::handle_messagearr(&pbuff, &tcclone);
             },
             Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
             Err(e) => error!("serial port recive failed {:?}", e)
@@ -108,6 +104,14 @@ impl SerialHandler{
   pub fn handle_message(buffer: &Vec<u8>, tcp: &Newsletter){
     info!("recived {:?}", buffer);
     match tcp.send(buffer){
+      Err(x) => error!("tcp failed to send {}", x),
+      _ => {}
+    };
+  }
+  
+  pub fn handle_messagearr(buffer: &[u8], tcp: &Newsletter){
+    info!("recived {:?}", buffer);
+    match tcp.sendarr(buffer){
       Err(x) => error!("tcp failed to send {}", x),
       _ => {}
     };
