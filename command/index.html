@@ -1,0 +1,63 @@
+<head>
+  <title>Command and control</title>
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script>
+<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/fomantic-ui@2.8.7/dist/semantic.min.css">
+<script src="https://cdn.jsdelivr.net/npm/fomantic-ui@2.8.7/dist/semantic.min.js"></script>
+</head>
+<body style="background-color: #161616; color: #ffffff;">
+  <div class="ui container fluid inverted">
+    <div class="ui middle aligned grid" style="height: 100%;">
+      <div class="five wide center aligned column" style="height: 100%;">
+        <div class="container" style="border-right: 2px solid #00ff00; margin-top: 30px; height: 100%;">
+          <div class="ui grid one column middle aligned" style="height: 100%;">
+            <div class=" center aligned column">
+              <h1>Altitude: NaNm</h1>
+              <a class="ui teal label">Touchdown</a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="five wide column">
+        <div class="ui grid one column middle aligned" style="height: 100%;">
+          <div class=" center aligned column">
+            <h1>Acceleration: NaNg</h1>
+
+
+            <h2 style="margin-top: 20px;">Temp-0: NaNC</h1>
+            <h2 style="padding-bottom: 40px;">Temp-1: NaNC</h1>
+
+            <button class="ui primary button">
+              Reset decoder
+            </button>
+            <button style="margin-bottom: 30px;" class="ui inverted button">
+              Reset usb line
+            </button>
+
+            <div class="ui right inverted transparent labeled input">
+              <input type="text" placeholder="Freq" value="1090000000">
+              <div class="ui basic label">
+                Hz
+              </div>
+            </div>
+            <div class="ui right inverted transparent labeled input">
+              <input type="text" placeholder="Gain" value="40">
+              <div class="ui basic label">
+                dB
+              </div>
+            </div> <br/>
+            <button class="ui primary button">
+              Update decoder
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="six wide column">
+          <div class="ui grid one column middle aligned" style="height: 100%;">
+            <div class="center aligned column">
+              Here there will be a scrolling log
+            </div>
+          </div>
+      </div>
+    </div>
+  </div>
+</body>

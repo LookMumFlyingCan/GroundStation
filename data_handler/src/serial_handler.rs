@@ -18,7 +18,7 @@ pub struct SerialHandler{
 impl SerialHandler{
   pub fn connect(name: &str, baudrate: u32, tcptx: Newsletter) -> std::result::Result<Self, serialport::Error>{
     match serialport::new(name, baudrate)
-      .timeout(Duration::from_millis(100))
+      .timeout(Duration::from_millis(10))
       .open() {
         Ok(x) => Ok(Self{ port: x, comm: None, commip: None, news: tcptx }),
         Err(x) => {

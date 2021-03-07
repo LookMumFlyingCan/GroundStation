@@ -1,4 +1,5 @@
 import socket
+import time
 from pyModeS import adsb
 from pyModeS.decoder.bds.bds08 import category, callsign
 from pyModeS.decoder.bds.bds61 import emergency_squawk
@@ -8,7 +9,7 @@ import time
 IP = '127.0.0.1'
 TXPORT = 2137
 RXPORT = 2138
-BUFFER = 60
+BUFFER = 128
 
 global LAST_FRAME
 
@@ -49,7 +50,9 @@ def listen(PLANES):
             print('got message from ', icao, ' with typecode ', typecode, ' ', data)
             if not icao in PLANES:
                 #               position  squawk  alt    velocity    even frame  odd frame callsign
-                PLANES[icao] = [(-1, -1),   'unk'  , -1, (-1,-1,-1,''),  (None, 0),    (None, 0),     ''  ]
+                PLANES[icao] = [(-1, -1),   'unk'  , -1, (-1,-1,-1,''),  (None, 0),    (None, 0),     '', 0 ]
+
+            PLANES[icao][7] = time.time()
 
             if typecode == 19 or 5 <= typecode <= 8:
                 PLANES[icao][3] = adsb.velocity(data)
@@ -71,16 +74,17 @@ def listen(PLANES):
 
 
             print(PLANES)
-        #except:
-        #    print('dupsztyl')
 
 
     conn.close()
 
 
-def thread(window, PLANES):
+def thread(PLANES):
     #register()
 
-    while 1:
-        window.repaint()
-        listen(PLANES)
+    listen(PLANES)
+
+def painter(window):
+    while True:
+        time.sleep(1)
+        window.update()

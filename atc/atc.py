@@ -4,11 +4,13 @@ from PyQt5.QtGui import QPainter, QBrush, QPen, QFont
 from PyQt5.QtCore import Qt, QPoint
 from pyModeS import adsb
 import os
+import time
 
 import sys
 import packets
 import threading
 
+_FONT_ = 'Dogica Pixel'
 
 class Window(QMainWindow):
     def __init__(self, PLANES):
@@ -34,6 +36,9 @@ class Window(QMainWindow):
         self.setStyleSheet("background-color: black;")
         self.InitWindow()
 
+        self.w = PlaneWindow(self)
+        self.w.show()
+
 
     def InitWindow(self):
         self.setWindowTitle(self.title)
@@ -43,7 +48,6 @@ class Window(QMainWindow):
     def resizeEvent(self, e):
         self.width = self.frameGeometry().width()
         self.height = self.frameGeometry().height()-30
-        self.repaint()
 
     def keyPressEvent(self, event):
         if event.key() == 16777234 and self.hedeg < 180:
@@ -79,12 +83,12 @@ class Window(QMainWindow):
         event.accept()
 
     def paintEvent(self, e):
-        #global PLANES
+        print("repaint!")
         print(self.PLANES)
 
         painter = QPainter(self)
 
-        fn = QFont('Dogica Pixel', 7)
+        fn = QFont(_FONT_, 7)
 
         painter.setFont(fn)
 
@@ -93,7 +97,8 @@ class Window(QMainWindow):
 
         if self.station:
             self.drawStation(painter)
-        #self.drawPlane(painter, 19, 50, 213, 234, 234, len(self.PLANES), 123)
+
+        index = 0
         for idx in self.PLANES:
             plane = self.PLANES[idx]
             if plane[0][0] == -1:
@@ -101,7 +106,12 @@ class Window(QMainWindow):
                 painter.drawText(self.boxoffset + 10, self.height-self.boxoffset-10, str(plane[6]))
             else:
                 #print(plane)
-                self.drawPlane(painter, plane[0][1], plane[0][0], plane[2], plane[3][1], plane[3][0], plane[1], plane[6])
+                self.drawPlane(painter, plane[0][1], plane[0][0], plane[2], plane[3][1], plane[3][0], plane[1], plane[6], self.w.select == index)
+
+            index += 1
+
+        self.w.PLANES = self.PLANES
+        self.w.repaint()
 
 
     def drawStation(self, painter):
@@ -143,7 +153,7 @@ class Window(QMainWindow):
             painter.drawLine(self.boxoffset, i, self.boxoffset, i+self.dash)
 
 
-    def drawPlane(self, painter, x, y, alt, bear, vel, sqwk, callsign):
+    def drawPlane(self, painter, x, y, alt, bear, vel, sqwk, callsign, high):
         print('drawing ', x, ' ', y, ' ', alt, ' ', callsign)
 
         x -= self.hsdeg
@@ -159,21 +169,16 @@ class Window(QMainWindow):
         y = round(y)
 
         y = (self.height - y)
-        painter.setPen(QPen(Qt.red, 3, Qt.SolidLine))
+
+        if high:
+            painter.setPen(QPen(Qt.green, 3, Qt.SolidLine))
+        else:
+            painter.setPen(QPen(Qt.gray, 3, Qt.SolidLine))
+
         painter.drawPoint(x, y)
         painter.drawPoint(x, y+1)
         painter.drawPoint(x+1, y)
         painter.drawPoint(x+1, y+1)
-
-        painter.setPen(QPen(Qt.green, 2, Qt.SolidLine))
-        painter.drawLine(x,y,x - 15, y - 15)
-        painter.drawLine(x-15,y-15,x -50, y - 15)
-
-        painter.setPen(QPen(Qt.magenta, 1, Qt.SolidLine))
-        painter.drawText(x-50, y-20, str(alt) + 'ft')
-        painter.drawText(x-53, y-35, str(round(bear)) + '/' + str(vel))
-        painter.drawText(x-50, y+20, str(sqwk))
-        painter.drawText(x-5, y+20, str(callsign.strip('_')))
 
 
 
@@ -197,6 +202,71 @@ class Window(QMainWindow):
         for i in range(startx, stopx+1, 1):
             painter.drawText((i - startx) * ((self.width - 2*self.boxoffset) // (stopx - startx)) + self.boxoffset + 5, self.boxoffset + 25, str(i) + '°')
 
+class PlaneWindow(QMainWindow):
+    def __init__(self, up):
+        super().__init__()
+        self.title = "Aeroplanes"
+        self.top = 0
+        self.left = 0
+        self.width = 680
+        self.height = 500
+        self.dash = 10
+        self.index = 0
+        self.select = 0
+        self.PLANES = dict()
+        self.up = up
+
+        self.setStyleSheet("background-color: black;")
+        self.InitWindow()
+
+
+    def InitWindow(self):
+        self.setWindowTitle(self.title)
+        self.setGeometry(self.top, self.left, self.width, self.height)
+        self.show()
+
+    def resizeEvent(self, e):
+        self.width = self.frameGeometry().width()
+        self.height = self.frameGeometry().height()
+
+    def keyPressEvent(self, event):
+        if event.key() == 16777235:
+            self.select -= 1
+        elif event.key() == 16777237:
+            self.select += 1
+
+        self.up.repaint()
+        self.repaint()
+        event.accept()
+
+    def paintEvent(self, e):
+        print('defa ')
+        print(PLANES)
+        self.index = 0
+        painter = QPainter(self)
+
+        fn = QFont(_FONT_, 7)
+
+        painter.setFont(fn)
+
+        for idx in self.PLANES:
+            plane = self.PLANES[idx]
+            self.drawPlane(painter, idx, plane[0][1], plane[0][0], plane[2], plane[3][1], plane[3][0], plane[1], plane[6], plane[7])
+
+
+    def drawPlane(self, painter, icao, x, y, alt, bear, vel, sqwk, callsign, times):
+        print('drawing ', x, ' ', y, ' ', alt, ' ', callsign)
+
+        if self.index == self.select:
+            painter.setPen(QPen(Qt.green, 3, Qt.SolidLine))
+        else:
+            painter.setPen(QPen(Qt.white, 3, Qt.SolidLine))
+
+
+        painter.drawText(5, self.dash*self.index + 20, str(icao) + ' |*| ' + str(callsign.strip('_')) + ' |-| ' + str(alt) + 'ft |-| ' + str(round(bear)) + '/' + str(vel) + 'kt |_| ' + str(sqwk) + ' time since last frame: ' + str(round(time.time() - times)))
+        self.index += 1
+
+
 
 #global stop
 
@@ -205,8 +275,10 @@ PLANES = dict()
 App = QApplication(sys.argv)
 window = Window(PLANES)
 
-packet_handler = threading.Thread(target=packets.thread, args=[window, PLANES])
+packet_handler = threading.Thread(target=packets.thread, args=[PLANES])
+painter = threading.Thread(target=packets.painter, args=[window])
 packet_handler.start()
+painter.start()
 
 #stop = True
 App.exec()
