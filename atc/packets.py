@@ -4,6 +4,7 @@ from pyModeS import adsb
 from pyModeS.decoder.bds.bds08 import category, callsign
 from pyModeS.decoder.bds.bds61 import emergency_squawk
 
+import plane
 import time
 
 IP = '127.0.0.1'
@@ -50,27 +51,28 @@ def listen(PLANES):
             print('got message from ', icao, ' with typecode ', typecode, ' ', data)
             if not icao in PLANES:
                 #               position  squawk  alt    velocity    even frame  odd frame callsign
-                PLANES[icao] = [(-1, -1),   'unk'  , -1, (-1,-1,-1,''),  (None, 0),    (None, 0),     '', 0 ]
+                PLANES[icao] = plane.Plane()
 
-            PLANES[icao][7] = time.time()
+            PLANES[icao].time = time.time()
 
             if typecode == 19 or 5 <= typecode <= 8:
-                PLANES[icao][3] = adsb.velocity(data)
+                PLANES[icao].velocity = adsb.velocity(data)
 
             if 9 <= typecode <= 18 or 20 <= typecode <= 22:
-                PLANES[icao][4+adsb.oe_flag(data)] = (data, time.time())
+                if adsb.oe_flag(data) == 0:
+                    PLANES[icao].even = (data, time.time())
 
                 print(PLANES[icao][4], ' ', PLANES[icao][5])
-                if PLANES[icao][4][0] != None and PLANES[icao][5][0] != None:
-                    PLANES[icao][0] = adsb.position(PLANES[icao][4][0], PLANES[icao][5][0], PLANES[icao][4][1], PLANES[icao][5][1])
+                if PLANES[icao].even != None and PLANES[icao].even != None:
+                    PLANES[icao].position = adsb.position(PLANES[icao].even[0], PLANES[icao].odd[0], PLANES[icao].even[1], PLANES[icao].odd[1])
 
-                PLANES[icao][2] = adsb.altitude(data)
+                PLANES[icao].altitude = adsb.altitude(data)
 
             if 1 <= typecode <= 4:
-                PLANES[icao][6] = callsign(data)
+                PLANES[icao].callsign = callsign(data)
 
             if typecode == 28:
-                PLANES[icao][1] = emergency_squawk(data)
+                PLANES[icao].squawk = emergency_squawk(data)
 
 
             print(PLANES)

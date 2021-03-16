@@ -75,8 +75,8 @@ impl SerialHandler {
     thread::spawn(move || loop{
       let buffer = match rx.recv() {
         Ok(x) => x,
-        Err(_) => {
-          error!("mpsc pipe failed to recieve");
+        Err(x) => {
+          error!("mpsc pipe failed to recieve {}", x);
           return;
         }
       };
@@ -93,7 +93,7 @@ impl SerialHandler {
   pub fn send_message(&mut self, buffer: [u8; BUFFER_SIZE]) -> Result<(), &'static str>{
     info!("sending {:?}", buffer);
 
-    match self.comm.take() {
+    match &self.comm {
       Some(x) =>  match x.send(buffer) { Ok(_) => Ok(()), Err(_) => Err("thread pipe failed") },
       None => Err("cannot relay messages, was this initialized?")
     }
