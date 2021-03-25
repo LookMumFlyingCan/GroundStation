@@ -1,3 +1,3 @@
-from collections import namedtuple
+from recordclass import recordclass
 
-Plane = namedtuple('Plane', 'position squawk altitude velocity even odd callsign time')
+Plane = recordclass('Plane', 'position squawk altitude velocity even odd callsign timed')

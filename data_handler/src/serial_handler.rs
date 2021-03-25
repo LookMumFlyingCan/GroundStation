@@ -15,21 +15,21 @@ pub struct SerialHandler{
 }
 
 impl SerialHandler {
-  pub fn connect(name: &str, baudrate: u32, tcptx: Newsletter) -> Result<Self, &'static str> {
+  pub fn connect(name: &str, baudrate: u32, tcptx: Newsletter) -> Result<Self, String> {
     let mut me = match serialport::new(name, baudrate)
       .timeout(Duration::from_millis(5))
       .open() {
         Ok(x) => Self{ port: x, comm: None, commip: None, news: tcptx },
-        Err(_) => return Err(Box::leak(format!("failed to open serial port {}", name).into_boxed_str()))
+        Err(_) => return Err(format!("failed to open serial port {}", name))
     };
 
     me.init()?; Ok(me)
   }
 
-  pub fn init(&mut self) -> Result<(), &'static str> {
+  pub fn init(&mut self) -> Result<(), String> {
     let mut rserial: boxed::Box<dyn serialport::SerialPort> = match self.port.try_clone(){
-      Err(_) => {
-        Err("failed to clone serial port")
+      Err(x) => {
+        Err(format!("failed to clone serial port: {}", x))
       },
       Ok(x) => Ok(x)
     }?;
@@ -62,8 +62,8 @@ impl SerialHandler {
     }});
     
     let mut serial: boxed::Box<dyn serialport::SerialPort> = match self.port.try_clone(){
-      Err(_) => {
-        Err("failed to clone serial port")
+      Err(x) => {
+        Err(format!("failed to clone serial port: {}", x))
       },
       Ok(x) => Ok(x)
     }?;
@@ -90,25 +90,25 @@ impl SerialHandler {
     Ok(())
   }
   
-  pub fn send_message(&mut self, buffer: [u8; BUFFER_SIZE]) -> Result<(), &'static str>{
+  pub fn send_message(&mut self, buffer: [u8; BUFFER_SIZE]) -> Result<(), String>{
     info!("sending {:?}", buffer);
 
     match &self.comm {
-      Some(x) =>  match x.send(buffer) { Ok(_) => Ok(()), Err(_) => Err("thread pipe failed") },
-      None => Err("cannot relay messages, was this initialized?")
+      Some(x) =>  match x.send(buffer) { Ok(_) => Ok(()), Err(x) => Err(format!("thread pipe failed: {}", x)) },
+      None => Err(format!("cannot relay messages, was this initialized?"))
     }
   }
 
-  pub fn handle_message(buffer: &[u8; BUFFER_SIZE], tcp: &Newsletter) -> Result<(), &'static str>{
+  pub fn handle_message(buffer: &[u8; BUFFER_SIZE], tcp: &Newsletter) -> Result<(), String>{
     info!("recived {:?}", buffer);
 
     tcp.send(buffer)
   }
 
-  pub fn subscribe(&mut self, sub: std::net::Ipv4Addr) -> Result<(), &'static str> {
+  pub fn subscribe(&mut self, sub: std::net::Ipv4Addr) -> Result<(), String> {
     match &self.commip {
-      Some(x) => match x.send(sub) { Ok(_) => Ok(()), Err(_) => Err("thread pipe failed") },
-      None => Err("serial handler is not initialized")
+      Some(x) => match x.send(sub) { Ok(_) => Ok(()), Err(x) => Err(format!("thread pipe failed: {}", x)) },
+      None => Err(format!("serial handler is not initialized"))
     }
   }
 }

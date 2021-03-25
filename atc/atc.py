@@ -5,6 +5,7 @@ from PyQt5.QtCore import Qt, QPoint
 from pyModeS import adsb
 import os
 import time
+from plane import Plane
 
 import sys
 import packets
@@ -101,12 +102,12 @@ class Window(QMainWindow):
         index = 0
         for idx in self.PLANES:
             plane = self.PLANES[idx]
-            if plane[0][0] == -1:
+            if plane.position == None:
                 painter.setPen(QPen(Qt.red, 3, Qt.SolidLine))
-                painter.drawText(self.boxoffset + 10, self.height-self.boxoffset-10, str(plane[6]))
+                painter.drawText(self.boxoffset + 10, self.height-self.boxoffset-10, str(plane.callsign))
             else:
                 #print(plane)
-                self.drawPlane(painter, plane[0][1], plane[0][0], plane[2], plane[3][1], plane[3][0], plane[1], plane[6], self.w.select == index)
+                self.drawPlane(painter, plane, self.w.select == index)
 
             index += 1
 
@@ -153,9 +154,11 @@ class Window(QMainWindow):
             painter.drawLine(self.boxoffset, i, self.boxoffset, i+self.dash)
 
 
-    def drawPlane(self, painter, x, y, alt, bear, vel, sqwk, callsign, high):
-        print('drawing ', x, ' ', y, ' ', alt, ' ', callsign)
+    def drawPlane(self, painter, aero, logic):
+        x = aero.position[1]
+        y = aero.position[0]
 
+        print('drawing ', x, ' ', y)
         x -= self.hsdeg
         y -= self.vsdeg
 
@@ -170,7 +173,7 @@ class Window(QMainWindow):
 
         y = (self.height - y)
 
-        if high:
+        if logic:
             painter.setPen(QPen(Qt.green, 3, Qt.SolidLine))
         else:
             painter.setPen(QPen(Qt.gray, 3, Qt.SolidLine))
@@ -251,11 +254,11 @@ class PlaneWindow(QMainWindow):
 
         for idx in self.PLANES:
             plane = self.PLANES[idx]
-            self.drawPlane(painter, idx, plane[0][1], plane[0][0], plane[2], plane[3][1], plane[3][0], plane[1], plane[6], plane[7])
+            self.drawPlane(painter, idx, plane)
 
 
-    def drawPlane(self, painter, icao, x, y, alt, bear, vel, sqwk, callsign, times):
-        print('drawing ', x, ' ', y, ' ', alt, ' ', callsign)
+    def drawPlane(self, painter, icao, aero):
+        print('drawing ', aero.altitude, ' ', aero.callsign)
 
         if self.index == self.select:
             painter.setPen(QPen(Qt.green, 3, Qt.SolidLine))
@@ -263,7 +266,7 @@ class PlaneWindow(QMainWindow):
             painter.setPen(QPen(Qt.white, 3, Qt.SolidLine))
 
 
-        painter.drawText(5, self.dash*self.index + 20, str(icao) + ' |*| ' + str(callsign.strip('_')) + ' |-| ' + str(alt) + 'ft |-| ' + str(round(bear)) + '/' + str(vel) + 'kt |_| ' + str(sqwk) + ' time since last frame: ' + str(round(time.time() - times)))
+        painter.drawText(5, self.dash*self.index + 20, str(icao) + ' |*| ' + str(aero.callsign.strip('_')) + ' |-| ' + str(aero.altitude) + 'ft |-| ' + str(round(aero.velocity[1])) + '/' + str(aero.velocity[0]) + 'kt |_| ' + str(aero.squawk) + ' time since last frame: ' + str(round(time.time() - aero.timed)))
         self.index += 1
 
 

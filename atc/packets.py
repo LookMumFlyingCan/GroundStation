@@ -37,8 +37,9 @@ def listen(PLANES):
             break
 
 
-        data = data.decode('utf-8').strip('\x00')
-        if True:
+
+        if data[0] == 42:
+            data = data[1:].rstrip(b'\x00').hex()
             typecode = adsb.typecode(data)
 
             icao = adsb.icao(data)
@@ -51,9 +52,9 @@ def listen(PLANES):
             print('got message from ', icao, ' with typecode ', typecode, ' ', data)
             if not icao in PLANES:
                 #               position  squawk  alt    velocity    even frame  odd frame callsign
-                PLANES[icao] = plane.Plane()
+                PLANES[icao] = plane.Plane(position=None, squawk=None, altitude=None, velocity=[0, 0],even=None,odd=None,callsign='', timed=None)
 
-            PLANES[icao].time = time.time()
+            PLANES[icao].timed = time.time()
 
             if typecode == 19 or 5 <= typecode <= 8:
                 PLANES[icao].velocity = adsb.velocity(data)
@@ -61,9 +62,11 @@ def listen(PLANES):
             if 9 <= typecode <= 18 or 20 <= typecode <= 22:
                 if adsb.oe_flag(data) == 0:
                     PLANES[icao].even = (data, time.time())
+                else:
+                    PLANES[icao].odd = (data, time.time())
 
-                print(PLANES[icao][4], ' ', PLANES[icao][5])
-                if PLANES[icao].even != None and PLANES[icao].even != None:
+                print(PLANES[icao].even, ' ', PLANES[icao].odd)
+                if PLANES[icao].even != None and PLANES[icao].odd != None:
                     PLANES[icao].position = adsb.position(PLANES[icao].even[0], PLANES[icao].odd[0], PLANES[icao].even[1], PLANES[icao].odd[1])
 
                 PLANES[icao].altitude = adsb.altitude(data)
