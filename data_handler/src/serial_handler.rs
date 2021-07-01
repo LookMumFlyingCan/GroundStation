@@ -3,7 +3,10 @@ use std::io::Write;
 use std::time::Duration;
 use std::sync::mpsc;
 use std::{io, thread};
-use std::boxed;
+use std::{boxed, str};
+use std::mem;
+
+use crate::backend::telemetry;
 
 pub const BUFFER_SIZE: usize = 128usize;
 
@@ -36,7 +39,7 @@ impl SerialHandler {
 
     let mut news = self.news.clone();
     let (txip, rxip): (mpsc::Sender<std::net::Ipv4Addr>, mpsc::Receiver<std::net::Ipv4Addr>) = mpsc::channel();
-    
+
     thread::spawn(move || {
       loop {
         let mut buffer = [0u8; BUFFER_SIZE];
@@ -60,18 +63,18 @@ impl SerialHandler {
           Err(e) => error!("serial port recive failed {:?}", e)
         };
     }});
-    
+
     let mut serial: boxed::Box<dyn serialport::SerialPort> = match self.port.try_clone(){
       Err(x) => {
         Err(format!("failed to clone serial port: {}", x))
       },
       Ok(x) => Ok(x)
     }?;
-    
+
     let (tx, rx): (mpsc::Sender<[u8; BUFFER_SIZE]>, mpsc::Receiver<[u8; BUFFER_SIZE]>) = mpsc::channel();
     self.comm = Some(tx);
     self.commip = Some(txip);
-    
+
     thread::spawn(move || loop{
       let buffer = match rx.recv() {
         Ok(x) => x,
@@ -89,7 +92,7 @@ impl SerialHandler {
 
     Ok(())
   }
-  
+
   pub fn send_message(&mut self, buffer: [u8; BUFFER_SIZE]) -> Result<(), String>{
     info!("sending {:?}", buffer);
 
@@ -102,7 +105,18 @@ impl SerialHandler {
   pub fn handle_message(buffer: &[u8; BUFFER_SIZE], tcp: &Newsletter) -> Result<(), String>{
     info!("recived {:?}", buffer);
 
-    tcp.send(buffer)
+    let mut processed = format!("");
+
+    if buffer[0] == ('^' as u8) {
+        processed.push_str("^;");
+        processed.push_str(&str::from_utf8(buffer).unwrap()[1..]);
+    } else if buffer[0] == ('B' as u8) {
+        let mut raw_data: [u8; 67] = [0; 67];
+        raw_data.copy_from_slice(&buffer[..67]);
+        let data = unsafe { mem::transmute::<[u8; 67], telemetry::Telemetry>(raw_data) };
+    }
+
+    tcp.send(buffer, processed)
   }
 
   pub fn subscribe(&mut self, sub: std::net::Ipv4Addr) -> Result<(), String> {

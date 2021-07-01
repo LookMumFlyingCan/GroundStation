@@ -22,29 +22,28 @@ impl Newsletter{
 
     Self{ subscribers: subs, port: conf.txport }
   }
-  
-  pub fn send(&self, buffer: &[u8; BUFFER_SIZE]) -> Result<(), String> {
+
+  pub fn send(&self, buffer: &[u8; BUFFER_SIZE], processed_data: String) -> Result<(), String> {
     for sub in &self.subscribers {
       let mut stream = match TcpStream::connect(format!("{}:{}", sub, self.port)) { Ok(x) => x, Err(_) => continue };
 
-      info!("sending {:?} via tcp", buffer);
+      info!("sending {:?} and {} via tcp", buffer, processed_data);
 
 
-      let buffer_copy: [u8; BUFFER_SIZE] = buffer.clone();
+      let buffer_copy = buffer.clone();
 
       tokio::runtime::Runtime::new().unwrap().block_on(async {
         match Newsletter::push_db(&buffer_copy).await { Err(x) => error!("failed to push to db: {}", x), _ => {} };
       });
 
-      match stream.write(buffer) { Err(x) => error!("failed to send via tcp: {}", x), _ => {} };
+      match stream.write(&[buffer, processed_data.as_bytes()].concat()) { Err(x) => error!("failed to send via tcp: {}", x), _ => {} };
       match stream.shutdown(Shutdown::Both) { Err(x) => error!("failed to shutdown tcp: {}", x), _ => {} };
     }
     Ok(())
   }
 
   async fn push_db(buffer: &[u8]) -> Result<(), String> {
-    info!("lecimy");
-    let (client, connection) = 
+    let (client, connection) =
       match tokio_postgres::connect("host=localhost user=remote password=\'jestemmilosz\' dbname=data", NoTls).await { Ok(x) => Ok(x), Err(x) => Err(format!("could not connect to database {}", x)) }?;
 
     tokio::spawn(async move {
@@ -83,7 +82,7 @@ impl Newsletter{
       Ok(x) => Ok(x),
       _ => Err("failed to read stream")
     }?;
-    
+
     if len > BUFFER_SIZE {
       Err(format!("message too long to recieve"))
     } else {

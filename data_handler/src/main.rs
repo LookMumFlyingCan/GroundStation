@@ -1,6 +1,7 @@
 mod serial_handler;
 mod config;
 mod tcptx;
+mod backend;
 
 use serial_handler::SerialHandler;
 use config::Config;
