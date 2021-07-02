@@ -113,7 +113,7 @@ impl SerialHandler {
     } else if buffer[0] == ('B' as u8) {
         let mut raw_data: [u8; 67] = [0; 67];
         raw_data.copy_from_slice(&buffer[..67]);
-        let data = unsafe { mem::transmute::<[u8; 67], telemetry::Telemetry>(raw_data) };
+        processed.push_str(&unsafe { mem::transmute::<[u8; 67], telemetry::Telemetry>(raw_data) }.serialize()[..]);
     }
 
     tcp.send(buffer, processed)
