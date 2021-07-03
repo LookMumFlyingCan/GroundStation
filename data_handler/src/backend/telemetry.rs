@@ -9,7 +9,7 @@ pub struct Telemetry {
     pub temp_env2: f32,
     pub temp_rpi: f32,
 
-    pub pressure: f32,
+    pub pressure: f64,
 
     pub acc_x: f32,
     pub acc_y: f32,
@@ -23,7 +23,7 @@ pub struct Telemetry {
     pub low_bus_amperage: f32,
 
     pub rpi_status: [u8; 2],
-    pub flags: [u8; 2]
+    pub flags: u16
 }
 
 impl Telemetry {

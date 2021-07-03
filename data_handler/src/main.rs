@@ -7,6 +7,8 @@ use serial_handler::SerialHandler;
 use config::Config;
 use tcptx::Newsletter;
 
+use backend::telemetry;
+
 extern crate pretty_env_logger;
 #[macro_use] extern crate log;
 use pretty_env_logger::env_logger;
@@ -14,6 +16,8 @@ use pretty_env_logger::env_logger;
 fn main() {
   // set the log level to be maximal and init logger
   pretty_env_logger::env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+
+  info!("{}", std::mem::size_of::<telemetry::Telemetry>());
 
   // load the config
   let config = Config::load("config.json");

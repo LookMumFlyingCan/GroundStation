@@ -3,16 +3,16 @@ use std::net::{TcpListener, TcpStream};
 use std::io::prelude::*;
 
 fn handle_client(stream: &mut TcpStream) {
-    let mut buffer = [0; 128];
+    let mut buffer = [0; 500];
 
     let len = stream.read(&mut buffer).unwrap();
-    println!("{:?}", &buffer[..len]);
+    println!("{:?} oraz {}", &buffer[..len], String::from_utf8((&buffer[128..]).to_vec()).unwrap());
 }
 
 fn main() -> std::io::Result<()> {
 
   thread::spawn(move || {
-    let mut listener = TcpListener::bind("127.0.0.1:2138").unwrap();
+    let mut listener = TcpListener::bind("127.0.0.1:2008").unwrap();
 
     // accept connections and process them serially
     for stream in listener.incoming() {
@@ -23,7 +23,7 @@ fn main() -> std::io::Result<()> {
   loop{
     let stdin = io::stdin();
     for line in stdin.lock().lines() {
-      let mut st = TcpStream::connect("127.0.0.1:2137")?;
+      let mut st = TcpStream::connect("127.0.0.1:2009")?;
 
       let mut buf: Vec<u8> = Vec::new();
       
