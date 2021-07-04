@@ -5,9 +5,10 @@ use std::io::prelude::*;
 pub struct Config {
     pub terminal: String,
     pub baudrate: u32,
-    pub subscribers: Vec<String>,
-    pub txport: u32,
-    pub rxport: u32
+    pub tcp_subscribers: Vec<String>,
+    pub tcp_txport: u32,
+    pub tcp_rxport: u32,
+    pub socket_port: u32
 }
 
 impl Config {
@@ -19,13 +20,13 @@ impl Config {
     let mut contents = String::new();
 
     file.read_to_string(&mut contents).unwrap();
-    
+
     let v: Config = match serde_json::from_str(&contents[0..]) {
       Ok(x) => Ok(x),
       Err(x) => { error!("json invalid {}", x); Err(x) }
     }.unwrap();
 
 
-    v    
+    v
   }
 }

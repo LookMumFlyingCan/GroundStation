@@ -1,45 +1,83 @@
-use crate::{config::Config, serial_handler::{BUFFER_SIZE, SerialHandler}};
+use crate::{config::Config, serial_handler::{BUFFER_SIZE, SerialHandler}, backend::decoder::Decoder};
 
 use std::net::{Shutdown, TcpStream, Ipv4Addr, IpAddr, TcpListener};
+use std::sync::mpsc;
 use std::io::prelude::*;
 use std::collections::hash_set::HashSet;
+use std::thread;
 use tokio_postgres::NoTls;
 use tokio;
 
 #[derive(Clone)]
-pub struct Newsletter {
-  pub subscribers: HashSet<String>,
-  port: u32
+pub struct Tcp {
 }
 
-impl Newsletter{
-  pub fn new(conf: &Config) -> Self {
-    let mut subs = HashSet::<String>::new();
+impl Tcp {
+  pub fn new(conf: &Config, org_tx: &mut mpsc::Sender<[u8; BUFFER_SIZE]>, org_rx: &mut spmc::Receiver<[u8; BUFFER_SIZE]>) -> Self {
+    let mut subscribers = HashSet::<String>::new();
 
-    for sub in &conf.subscribers {
-      subs.insert(sub.clone());
+    for sub in &conf.tcp_subscribers {
+      subscribers.insert(sub.clone());
     }
 
-    Self{ subscribers: subs, port: conf.txport }
-  }
+    let (mut ctx, crx): (mpsc::Sender<Ipv4Addr>, mpsc::Receiver<Ipv4Addr>) = mpsc::channel();
 
-  pub fn send(&self, buffer: &[u8; BUFFER_SIZE], processed_data: String) -> Result<(), String> {
-    for sub in &self.subscribers {
-      let mut stream = match TcpStream::connect(format!("{}:{}", sub, self.port)) { Ok(x) => x, Err(_) => continue };
+    let txport = conf.tcp_txport.clone();
+    let rxport = conf.tcp_rxport.clone();
 
-      info!("sending {:?} and {} via tcp", buffer, processed_data);
+    let mut tx = org_tx.clone();
+    let mut rx = org_rx.clone();
+
+    thread::spawn(move || loop {
+        match rx.recv() {
+            Ok(x) => {
+                match crx.try_recv() {
+                    Ok(ip) => {
+                        subscribers.insert(ip.to_string());
+                    },
+                    Err(_) => {}
+                };
+                for sub in &subscribers {
+                  let mut stream = match TcpStream::connect(format!("{}:{}", sub, txport)) { Ok(y) => y, Err(_) => continue };
 
 
-      let buffer_copy = buffer.clone();
+                  //let buffer_copy = buffer.clone();
 
-      tokio::runtime::Runtime::new().unwrap().block_on(async {
-        match Newsletter::push_db(&buffer_copy).await { Err(x) => error!("failed to push to db: {}", x), _ => {} };
-      });
+                  //tokio::runtime::Runtime::new().unwrap().block_on(async {
+                //    match Newsletter::push_db(&buffer_copy).await { Err(x) => error!("failed to push to db: {}", x), _ => {} };
+                  //});
 
-      match stream.write(&[buffer, processed_data.as_bytes()].concat()) { Err(x) => error!("failed to send via tcp: {}", x), _ => {} };
-      match stream.shutdown(Shutdown::Both) { Err(x) => error!("failed to shutdown tcp: {}", x), _ => {} };
-    }
-    Ok(())
+                  let processed_data = match Decoder::decode(x) {
+                      Ok(x) => x,
+                      Err(_) => format!("")
+                  };
+
+                  info!("sending {:?} and {} via tcp", x, processed_data);
+
+                  match stream.write(&[&x[..], processed_data.as_bytes()].concat()) { Err(x) => error!("failed to send via tcp: {}", x), _ => {} };
+                  match stream.shutdown(Shutdown::Both) { Err(x) => error!("failed to shutdown tcp: {}", x), _ => {} };
+                }
+            },
+            Err(x) => {
+                error!("pipe failed to recieve {}", x);
+                return;
+            }
+        };
+    });
+
+    thread::spawn(move || loop {
+        loop{
+          for conn in (match TcpListener::bind(format!("127.0.0.1:{}", rxport)) { Ok(x) => x, _ => continue }).incoming() {
+            match Tcp::handle_stream(&mut (match conn {Ok(x) => x, _ => continue}), &mut tx, &mut ctx) {
+              Err(x) => { error!("{}", x); break; },
+              _ => {}
+            };
+          }
+        }
+    });
+
+
+    Self{}
   }
 
   async fn push_db(buffer: &[u8]) -> Result<(), String> {
@@ -57,25 +95,7 @@ impl Newsletter{
     Ok(())
   }
 
-  pub fn subscribe(&mut self, sub: Ipv4Addr){
-    let subc = sub.clone();
-
-    self.subscribers.insert(sub.to_string());
-    info!("new subscriber sucesfully added {:?}", subc.to_string());
-  }
-
-  pub fn receive(port: &mut SerialHandler, rxport: u32) -> Result<(), String>{
-    loop{
-      for conn in (match TcpListener::bind(format!("127.0.0.1:{}", rxport)) { Ok(x) => x, _ => continue }).incoming() {
-        match Newsletter::handle_stream(&mut (match conn {Ok(x) => x, _ => continue}), port) {
-          Err(x) => error!("{}", x),
-          _ => {}
-        };
-      }
-    }
-  }
-
-  pub fn handle_stream(stream: &mut TcpStream, port: &mut SerialHandler) -> Result<(), String>{
+  pub fn handle_stream(stream: &mut TcpStream, port: &mut mpsc::Sender<[u8; BUFFER_SIZE]>, special: &mut mpsc::Sender<Ipv4Addr>) -> Result<(), String>{
     let mut buffer = [0u8; BUFFER_SIZE];
 
     let len = match stream.read(&mut buffer) {
@@ -89,12 +109,20 @@ impl Newsletter{
       if buffer[0] == 7u8 && buffer[1] == 7u8 {
         info!("subsciption request recivied for {}", stream.peer_addr().unwrap().ip());
         match (match stream.peer_addr() { Ok(x) => x, _ => return Err(format!("masked subscriber address")) }).ip() {
-          IpAddr::V4(ip) => port.subscribe(ip),
+          IpAddr::V4(ip) => match special.send(ip) { Ok(_) => Ok(()), Err(_) => Err(format!("pipe connection failed")) },
           IpAddr::V6(_ip) => { Err(format!("this server does not support ipv6 connections")) }
         }
       } else {
-        info!("recieved {:?} via tcp", buffer);
-        port.send_message(buffer)
+        info!("recieved {:?} via tcp", &buffer[..len]);
+
+        if len == 0 {
+            return Err(format!("cannot send empty packet"));
+        }
+
+        match port.send(buffer) {
+            Ok(_) => Ok(()),
+            Err(x) => Err(format!("failed to send via pipe {}", x))
+        }
       }
     }
   }

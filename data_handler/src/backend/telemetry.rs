@@ -1,4 +1,4 @@
-#[repr(packed)]
+//#[repr(packed)]
 pub struct Telemetry {
     pub dformat: u8,
     pub frame_num: u16,
@@ -28,6 +28,6 @@ pub struct Telemetry {
 
 impl Telemetry {
     pub fn serialize(&self) -> String {
-        unsafe {[format!("{}", self.dformat as char), ";".to_string(), format!("{}", self.frame_num), ";".to_string(), format!("{}", self.temp_pcb), ";".to_string(), format!("{}", self.temp_sdr), ";".to_string(), format!("{}", self.temp_env1), ";".to_string(), format!("{}", self.temp_env2), ";".to_string(), format!("{}", self.temp_rpi), ";".to_string(), format!("{}", self.pressure), ";".to_string(), format!("{}", self.acc_x), ";".to_string(), format!("{}", self.acc_y), ";".to_string(), format!("{}", self.acc_z), ";".to_string(), format!("{}", self.bat_v), ";".to_string(), format!("{}", self.bat_a), ";".to_string(), format!("{}", self.main_bus_voltage), ";".to_string(), format!("{}", self.main_bus_amperage), ";".to_string(), format!("{}", self.low_bus_voltage), ";".to_string(), format!("{}", self.low_bus_amperage)].concat().to_string()}
+        [format!("{}", self.dformat as char), ";".to_string(), format!("{}", self.frame_num), ";".to_string(), format!("{}", self.temp_pcb), ";".to_string(), format!("{}", self.temp_sdr), ";".to_string(), format!("{}", self.temp_env1), ";".to_string(), format!("{}", self.temp_env2), ";".to_string(), format!("{}", self.temp_rpi), ";".to_string(), format!("{}", self.pressure), ";".to_string(), format!("{}", self.acc_x), ";".to_string(), format!("{}", self.acc_y), ";".to_string(), format!("{}", self.acc_z), ";".to_string(), format!("{}", self.bat_v), ";".to_string(), format!("{}", self.bat_a), ";".to_string(), format!("{}", self.main_bus_voltage), ";".to_string(), format!("{}", self.main_bus_amperage), ";".to_string(), format!("{}", self.low_bus_voltage), ";".to_string(), format!("{}", self.low_bus_amperage)].concat().to_string()
     }
 }

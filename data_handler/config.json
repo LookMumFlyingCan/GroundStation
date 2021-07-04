@@ -1,7 +1,8 @@
 {
   "baudrate": 9600,
-  "txport": 2008,
-  "rxport": 2009,
+  "tcp_txport": 2008,
+  "tcp_rxport": 2009,
   "terminal": "/dev/pts/5",
-  "subscribers": ["127.0.0.1"]
+  "tcp_subscribers": [],
+  "socket_port": 2011
 }

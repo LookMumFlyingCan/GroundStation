@@ -2,10 +2,12 @@ mod serial_handler;
 mod config;
 mod tcptx;
 mod backend;
+mod websocket;
 
 use serial_handler::SerialHandler;
 use config::Config;
-use tcptx::Newsletter;
+use tcptx::Tcp;
+use crate::websocket::Socket;
 
 use backend::telemetry;
 
@@ -21,13 +23,19 @@ fn main() {
 
   // load the config
   let config = Config::load("config.json");
-  // initialize the tcp handler
-  let news = Newsletter::new(&config);
 
   // start the serial port handler
-  let mut port = SerialHandler::connect(&config.terminal[0..], config.baudrate, news).unwrap();
+  let mut port = SerialHandler::connect(&config.terminal[0..], config.baudrate).unwrap();
 
-  drop(config.subscribers);
+  // initialize the tcp handler
+  let news = Tcp::new(&config, &mut port.tx.clone(), &mut port.rx.clone());
+
+  let sock = Socket::new(&config, &mut port.rx.clone());
+
+  loop{}
+  //let sock = Socket::new(&config);
+
+  //drop(config.subscribers);
   // throw the main thread into tcprx as we dont need it anymore
-  Newsletter::receive(&mut port, config.rxport);
+  //Newsletter::receive(&mut port, config.tcp_rxport);
 }
