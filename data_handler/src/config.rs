@@ -8,7 +8,8 @@ pub struct Config {
     pub tcp_subscribers: Vec<String>,
     pub tcp_txport: u32,
     pub tcp_rxport: u32,
-    pub socket_port: u32
+    pub socket_port: u32,
+    pub timeout: u32
 }
 
 impl Config {

@@ -1,87 +1,69 @@
-use crate::{config::Config, serial_handler::{BUFFER_SIZE, SerialHandler}, backend::decoder::Decoder};
+use crate::{config::Config, serial_handler::{BUFFER_SIZE}, backend::decoder::Decoder};
 
-use std::net::{Shutdown, TcpStream, Ipv4Addr, IpAddr, TcpListener};
-use std::sync::mpsc;
-use std::io::prelude::*;
-use std::collections::hash_set::HashSet;
-use std::thread;
 
-use websocket::sync::Server;
-use websocket::client::sync::Client;
-use websocket::OwnedMessage;
-use websocket::server::NoTlsAcceptor;
+use std::net::TcpListener;
+
+use std::{thread, time};
+
+//use websocket::sync::Server;
+//use websocket::OwnedMessage;
+
+use tungstenite::server::accept;
+use tungstenite::Message::Binary;
 
 #[derive(Clone)]
 pub struct Socket {
 }
 
 impl Socket {
-  pub fn new(conf: &Config, org_rx: &mut spmc::Receiver<[u8; BUFFER_SIZE]>) -> Self {
-    //let subscribers: Vec<Client<NoTlsAcceptor>> = vec![];
+    pub fn run(conf: &Config, org_rx: &mut spmc_buffer::SPMCBufferOutput<[u8; BUFFER_SIZE + 1]>) -> Self {
+        let port = conf.socket_port.clone();
 
-    let port = conf.socket_port.clone();
+        loop{
+            for conn in (match TcpListener::bind(format!("0.0.0.0:{}", port)) { Ok(x) => x, _ => continue }).incoming() {
+                let timeout = conf.timeout.clone();
+                let mut counter: u8 = 0;
+                let mut rx = org_rx.clone();
 
-    let mut rx = org_rx.clone();
+                match conn {
+                    Ok(chan) => {
+                        info!("conncetion on socket from {}", chan.peer_addr().unwrap());
 
-    //let (mut ctx, crx): (mpsc::Sender<Client<NoTlsAcceptor>>, mpsc::Receiver<Client<NoTlsAcceptor>>) = mpsc::channel();
-
-    thread::spawn(move || {
-        let server = Server::bind(format!("127.0.0.1:{}", port)).unwrap();
-        for req in server.filter_map(Result::ok){
-            let mut chan = req.accept().unwrap();
-            match rx.recv() {
-                Ok(x) => {
-                        /*match crx.try_recv() {
-                            Ok(ip) => {
-                                subscribers.push(ip);
-                            },
-                            Err(_) => {}
-                        };*/
-
-                        let processed_data = match Decoder::decode(x) {
+                        let mut socket = match accept(chan) {
                             Ok(x) => x,
-                            Err(_) => format!("")
+                            Err(_) => continue
                         };
 
-                        let mess = OwnedMessage::Binary([&x[..], processed_data.as_bytes()].concat());
-                        chan.send_message(&mess);
-                },
-                Err(x) => {
-                    error!("pipe failed to recieve {}", x);
-                    return;
+                        info!("socket connection accepted");
+
+                        thread::spawn(move || loop{
+                            match rx.read() {
+                            x => {
+                                if x[BUFFER_SIZE] == counter {
+                                    thread::sleep(time::Duration::from_millis(timeout as u64));
+                                    continue;
+                                }
+
+                                counter = x[BUFFER_SIZE];
+
+                                let processed_data = match Decoder::decode(&x[..]) {
+                                    Ok(x) => x,
+                                    Err(_) => format!("")
+                                };
+
+                                info!("proc: {}", processed_data);
+
+                                info!("sending {:?} via socket", [&x[..BUFFER_SIZE], processed_data.as_bytes()].concat());
+                                match socket.write_message(Binary([&x[..BUFFER_SIZE], processed_data.as_bytes()].concat())) {
+                                    Err(x) => { warn!("failed to send data via socket: {}", x); break; } ,
+                                    _ => {}
+                                };
+                            }
+                        }});
+                    },
+                    _ => { error!("failed to open connection"); continue; }
                 }
-            };
-        }
-    });
-
-    /*thread::spawn(move || loop {
-        match rx.recv() {
-            Ok(x) => {
-                    match crx.try_recv() {
-                        Ok(ip) => {
-                            subscribers.push(ip);
-                        },
-                        Err(_) => {}
-                    };
-
-                    let processed_data = match Decoder::decode(x) {
-                        Ok(x) => x,
-                        Err(_) => format!("")
-                    };
-
-                    let mess = OwnedMessage::Binary(&[&x[..], processed_data.as_bytes()].concat());
-                    for sub in &subscribers {
-                        sub.send_message(&mess);
-                    }
-            },
-            Err(x) => {
-                error!("pipe failed to recieve {}", x);
-                return;
             }
-        };
-    });*/
-
-
-    Self{}
-  }
+        }
+    }
 }

@@ -2,7 +2,8 @@
   "baudrate": 9600,
   "tcp_txport": 2008,
   "tcp_rxport": 2009,
-  "terminal": "/dev/pts/5",
-  "tcp_subscribers": [],
-  "socket_port": 2011
+  "terminal": "/dev/pts/4",
+  "tcp_subscribers": ["localhost"],
+  "socket_port": 2011,
+  "timeout": 50
 }

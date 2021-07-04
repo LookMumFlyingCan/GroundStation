@@ -4,16 +4,14 @@ use std::sync::mpsc;
 use std::{io, thread};
 use std::{boxed, str};
 
-
-use crate::backend::telemetry;
-
-use spmc;
+use spmc_buffer::SPMCBuffer;
+use spmc_buffer;
 
 pub const BUFFER_SIZE: usize = 128usize;
 
 pub struct SerialHandler{
     pub tx: mpsc::Sender<[u8; BUFFER_SIZE]>,
-    pub rx: spmc::Receiver<[u8; BUFFER_SIZE]>
+    pub rx: spmc_buffer::SPMCBufferOutput<[u8; BUFFER_SIZE + 1]>
 }
 
 impl SerialHandler {
@@ -32,18 +30,21 @@ impl SerialHandler {
             Ok(x) => Ok(x)
         }?;
 
-        let (mut stx, mut srx): (spmc::Sender<[u8; BUFFER_SIZE]>, spmc::Receiver<[u8; BUFFER_SIZE]>) = spmc::channel();
+        let (mut stx, srx) = SPMCBuffer::new(10, [0u8; BUFFER_SIZE + 1]).split();
 
+        info!("initializing serial reader");
+
+        let mut counter: u8 = 1;
         thread::spawn(move || {
             loop {
-                let mut buffer = [0u8; BUFFER_SIZE];
+                let mut buffer = [0u8; BUFFER_SIZE + 1];
                 match port.read(&mut buffer) {
-                    Ok(x) => {
-                        info!("pbuffer {:?}", buffer);
-                        match stx.send(buffer) {
-                            Err(x) => error!("could not handle message: {}", x),
-                            _ => {}
-                        };
+                    Ok(_x) => {
+                        buffer[BUFFER_SIZE] = counter;
+                        stx.write(buffer);
+                        counter = counter.wrapping_add(1);
+
+                        info!("serial data recieved");
                     },
                     Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
                     Err(e) => error!("serial port recive failed {:?}", e)
@@ -51,7 +52,7 @@ impl SerialHandler {
             }});
 
 
-        let (mut tx, mut rx): (mpsc::Sender<[u8; BUFFER_SIZE]>, mpsc::Receiver<[u8; BUFFER_SIZE]>) = mpsc::channel();
+        let (tx, rx): (mpsc::Sender<[u8; BUFFER_SIZE]>, mpsc::Receiver<[u8; BUFFER_SIZE]>) = mpsc::channel();
 
         thread::spawn(move || loop{
             let buffer = match rx.recv() {
@@ -69,20 +70,5 @@ impl SerialHandler {
         });
 
         Ok(Self{ tx: tx, rx: srx })
-    }
-
-    pub fn init(&mut self) -> Result<(), String> {
-
-
-        Ok(())
-    }
-
-    pub fn send_message(&mut self, buffer: [u8; BUFFER_SIZE]) -> Result<(), String>{
-        info!("sending {:?}", buffer);
-
-        match self.tx.send(buffer) {
-            Ok(_) => Ok(()),
-            Err(x) => Err(format!("failed to send {}", x))
-        }
     }
 }

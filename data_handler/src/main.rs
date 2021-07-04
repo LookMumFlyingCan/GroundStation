@@ -28,9 +28,9 @@ fn main() {
   let mut port = SerialHandler::connect(&config.terminal[0..], config.baudrate).unwrap();
 
   // initialize the tcp handler
-  let news = Tcp::new(&config, &mut port.tx.clone(), &mut port.rx.clone());
+  let _news = Tcp::new(&config, &mut port.tx, &mut port.rx.clone());
 
-  let sock = Socket::new(&config, &mut port.rx.clone());
+  let _sock = Socket::run(&config, &mut port.rx);
 
   loop{}
   //let sock = Socket::new(&config);
